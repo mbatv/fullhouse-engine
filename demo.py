@@ -242,7 +242,7 @@ function updateReplay(hands) {
   // Show all hands (newest first) — inner #replay scrolls via max-height + overflow-y
   const show = hands.slice().reverse();
   show.forEach(h => {
-    const r = h.result;
+    const r = h.result || h;
     const winner = r.winners?.map(w => w.bot_id).join(', ') || '?';
     const community = r.community_cards?.join(' ') || '—';
     const actions = (r.action_log || [])

@@ -13,20 +13,25 @@ def swiss_pairing(standings, table_size=6):
     Pair bots into tables. `standings` is a list of dicts with bot_id, bot_path,
     cumulative_delta. Returns a list of tables (each table is a list of bot dicts).
 
-    Stragglers (fewer bots left than `table_size`) are folded into the last full
-    table rather than playing a short-handed match.
+    When the field does not divide evenly, it is split into the fewest tables
+    of at most `table_size` seats, with sizes differing by at most one (larger
+    tables first). E.g. 64 bots at 6-max -> 9 tables of 6 and 2 tables of 5.
+    The 2026 reference instead folded the remainder into the last table, which
+    could produce tables above the engine's seat limit (64 -> a 10-seat table).
     """
     sorted_bots = sorted(standings, key=lambda b: -b.get("cumulative_delta", 0))
+    if not sorted_bots:
+        return []
+
+    n_tables = -(-len(sorted_bots) // table_size)
+    base, extra = divmod(len(sorted_bots), n_tables)
 
     tables = []
     i = 0
-    while i < len(sorted_bots):
-        remaining = len(sorted_bots) - i
-        if remaining < table_size and tables:
-            tables[-1].extend(sorted_bots[i:])
-            break
-        tables.append(sorted_bots[i:i + table_size])
-        i += table_size
+    for t in range(n_tables):
+        size = base + (1 if t < extra else 0)
+        tables.append(sorted_bots[i:i + size])
+        i += size
 
     return tables
 

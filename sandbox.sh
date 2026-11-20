@@ -26,7 +26,7 @@ test_sandbox() {
         --memory-swap 768m \
         --cpus 0.5 \
         --read-only \
-        --no-new-privileges \
+        --security-opt no-new-privileges \
         --user 1000:1000 \
         --tmpfs /tmp:size=20m \
         -v "$(pwd)/$BOT:/bot/bot.py:ro" \

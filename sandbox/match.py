@@ -120,6 +120,7 @@ class BotProcess:
         self.bot_path = bot_path
         self.errors   = []
         self.dead     = False
+        self._container = None
         self._cleanup_dir = None
         self._buf     = b""
 
@@ -136,16 +137,20 @@ class BotProcess:
         container_bot_py = "/bot/bot.py"
 
         if USE_DOCKER:
+            # Named so it can be killed directly: killing the `docker run`
+            # client alone leaves the container (and a wedged bot) running.
+            self._container = "fhbot_" + uuid.uuid4().hex[:12]
             cmd = [
                 "docker", "run",
                 "--rm",
+                "--name",    self._container,
                 "-i",
                 "--network", "none",
                 "--memory",  CONTAINER_MEMORY,
                 "--memory-swap", CONTAINER_MEMORY,
                 "--cpus",    CONTAINER_CPUS,
                 "--read-only",
-                "--no-new-privileges",
+                "--security-opt", "no-new-privileges",
                 "--user",    "1000:1000",
                 "--pids-limit", CONTAINER_PIDS_LIMIT,
                 "--tmpfs",   "/tmp:size=" + CONTAINER_TMPFS_SIZE,
@@ -215,6 +220,16 @@ class BotProcess:
         """A wedged or dead bot folds for the rest of the match."""
         self.dead = True
         self.errors.append(reason)
+        self._terminate()
+
+    def _terminate(self):
+        if self._container:
+            try:
+                subprocess.run(["docker", "kill", self._container],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               timeout=15)
+            except Exception:
+                pass
         try:
             self._proc.kill()
         except Exception:
@@ -275,7 +290,7 @@ class BotProcess:
             try:
                 self._proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                self._proc.kill()
+                self._terminate()
         if self._cleanup_dir and os.path.isdir(self._cleanup_dir):
             shutil.rmtree(self._cleanup_dir, ignore_errors=True)
 

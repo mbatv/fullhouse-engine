@@ -91,3 +91,21 @@ def test_match_log_records_applied_action(tmp_path):
     r = run_match("t", {"c1": path, "c2": path}, n_hands=1, seed=1)
     first = r["hands"][0]["action_log"]
     assert any(a["action"] == "call" for a in first)
+
+
+@pytest.mark.skipif(not match.USE_DOCKER, reason="Docker mode only")
+def test_killed_bot_leaves_no_container(tmp_path, short_timeout):
+    import subprocess
+    path = write_bot(tmp_path, "wedged2",
+                     "import re\n"
+                     "def decide(s):\n"
+                     "    re.match(r'(a+)+$', 'a' * 40 + 'b')\n")
+    bot = BotProcess("wedged2", path)
+    try:
+        bot.act(STATE)
+        assert bot.dead
+    finally:
+        bot.stop()
+    ps = subprocess.run(["docker", "ps", "-q", "--filter", "name=" + bot._container],
+                        capture_output=True, text=True)
+    assert ps.stdout.strip() == ""
